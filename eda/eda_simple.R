@@ -106,7 +106,7 @@ df <- xx %>% select(-metadata_tag)
 # visualize 1 -----------------------------------------------
 
 # trend line of loss costs (mean/median) over time
-df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'), 
+df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
               hazard_group != 0, hazard_group != "F") %>% 
   group_by(lc_eff_yr) %>% 
   summarise(lc_mean = mean(loss_cost), 
@@ -136,7 +136,7 @@ df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'),
 # visualize 2 -----------------------------------------------
 
 # trend line of loss costs (mean/median) over time
-df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'), 
+df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
               hazard_group != 0, hazard_group != "F") %>% 
   group_by(lc_eff_yr, hazard_group) %>% 
   summarise(lc_mean = mean(loss_cost), 
@@ -151,7 +151,7 @@ df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'),
        caption = "Excludes F Haz Group and classes with LC over $10")
 
 # box plot of class level loss costs by year
-df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'), 
+df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
               hazard_group != 0, hazard_group != "F") %>% 
   mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
   ggplot(aes(x = lc_eff_yr, y = loss_cost, group = lc_eff_yr, 
@@ -162,5 +162,72 @@ df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'),
   labs(x = "Loss Cost Eff Year", y = "Loss Cost", 
        subtitle = "Loss Cost By Class Distribution Over Time", 
        caption = "Excludes F Haz Group and classes with LC over $10")
+
+# ^ -----
+
+# visualize 3 ------------------------------------------------
+
+fun_delta_type <- function(vvv) {
+  return_me <- case_when(is.na(vvv) ~ 'ERROR', 
+                         vvv == 0 ~ 'NO CHANGE', 
+                         vvv > 0.2 ~ '+20%', 
+                         vvv > 0.1 ~ '10-20%', 
+                         vvv > 0.05 ~ '5-10%', 
+                         vvv > 0 ~ '0-5%',
+                         vvv < -0.2 ~ '-20%', 
+                         vvv < -0.1 ~ '-10-20%', 
+                         vvv < -0.05 ~ '-10-20%', 
+                         vvv < 0 ~ '-0-5%', 
+                         TRUE ~ 'ERROR')
+  return(return_me)}
+
+fun_code_type <- function(yr1, yr2) {
+  return_me <- case_when(is.na(yr1) & !is.na(yr2) ~ 'NEW CODE', 
+                         !is.na(yr1) & is.na(yr2) ~ 'RETIRED CODE', 
+                         is.na(yr1) & is.na(yr2) ~ 'ANCIENT CODE', 
+                         !is.na(yr1) & !is.na(yr2) ~ 'LIVE CODE', 
+                         TRUE ~ 'ERROR')
+  return(return_me)}
+
+fun_wider_tbl <- function(df_func) {
+  return_me <- df_func %>% 
+    mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
+    group_by(lc_eff_yr, hazard_group, class_code_fct) %>% 
+    summarise(loss_cost = min(loss_cost)) %>% 
+    pivot_wider(names_from = lc_eff_yr, values_from = loss_cost, 
+                names_prefix = 'yr_') %>% 
+    mutate(delta_18_19 = yr_2019 / yr_2018 - 1, 
+           delta_19_20 = yr_2020 / yr_2019 - 1, 
+           delta_20_21 = yr_2021 / yr_2020 - 1) %>% 
+    mutate(type_20_21 = fun_delta_type(delta_20_21), 
+           class_code_type = fun_code_type(yr_2020, yr_2021))
+  return(return_me)}
+
+
+df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
+              hazard_group != 0, hazard_group != "F") %>% 
+  fun_wider_tbl() %>% 
+  View()
+  mutate(yr_2020 = ifelse(is.na(yr_2020), 0, yr_2020), 
+         yr_2021 = ifelse(is.na(yr_2021), 0, yr_2021)) %>% 
+  ggplot() + 
+  geom_point(aes(x = yr_2021, y = yr_2020, 
+                 color = hazard_group), 
+             alpha = 0.5) + 
+  theme_minimal() + theme(legend.position = 'none') + 
+  facet_wrap(vars(hazard_group), scales = 'free')
+
+df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
+              hazard_group != 0, hazard_group != "F") %>% 
+  fun_wider_tbl() %>% 
+  ggplot() + 
+  geom_point(aes(x = yr_2021, y = delta_20_21, 
+                 color = hazard_group), 
+             alpha = 0.5) + 
+  geom_hline(aes(yintercept = median(delta_20_21, na.rm = TRUE)), 
+             linetype = 2) + 
+  theme_minimal() + theme(legend.position = 'none') + 
+  facet_wrap(vars(hazard_group))
+
 
 # ^ -----

@@ -136,11 +136,15 @@ fun_readfiles <- function(filepaths) {
            class_code_fct = str_pad(as.character(class_code), 4), 
            class_code_fct = str_replace_all(class_code_fct, 
                                             ' ', '0'), 
-           class_code_fct = as_factor(class_code_fct))
+           class_code_fct = as_factor(class_code_fct), 
+           class_temp_staff = str_detect(class_description, 
+                                         'TEMPORARY STAFFING'), 
+           class_noc = str_detect(class_description, 
+                                  'N.O.C.'))
   return(xx)}
 
 # test +++++++++++++++++++++++++++
-# fun_readfiles(payload[6, 2]) %>% View()
+# fun_readfiles(payload[5, 2]) %>% View()
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # execute the file reading purrr, and time it
