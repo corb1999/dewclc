@@ -114,23 +114,33 @@ fun_readfiles <- function(filepaths) {
   # read the files, but just the cells with the loss costs in them
   xx <- read_excel(path = filepaths, 
                    sheet = 1, 
-                   range = "A6:P500", 
-                   col_names = FALSE)
-  # fix the column names, prefix delete the ones we dont want
-  colnames(xx) <- c("class_code", "lc_eff_dt", "del3", 
-                    "loss_cost", "del5", "del6", "del7",  
-                    "del8", "del9", "del10", "del11", 
-                    "del12", "del13", "hazard_group", "del15", 
-                    "class_description")
-  # drop any extra rows and drop unwanted columns
-  xx <- xx %>% filter(!is.na(class_code)) %>% 
-    select(!starts_with("del")) %>% 
-    mutate(lc_eff_yr = year(lc_eff_dt), 
-           loss_cost = round(as.numeric(loss_cost), digits = 2))
+                   range = "A5:P500", 
+                   col_names = TRUE)
+  # fix the column names, prefix delete the ones we dont want ::::
+  # colnames(xx) <- c("class_code", "lc_eff_dt", "del3", 
+  #                   "loss_cost", "del5", "del6", "del7",  
+  #                   "del8", "del9", "del10", "del11", 
+  #                   "del12", "del13", "hazard_group", "del15", 
+  #                   "class_description")
+  xx <- xx %>% clean_names() %>% 
+    select(c("class", "effective_date", "bureau_advisory_loss_costs", 
+             "hazard_group", "class_description")) %>% 
+    rename(class_code = class, lc_eff_dt = effective_date, 
+           loss_cost = bureau_advisory_loss_costs)
+  # drop any extra rows and drop unwanted columns :::::::::
+  xx <- xx %>% filter(!is.na(class_code)) %>%
+    select(!starts_with("del")) %>%
+    mutate(lc_eff_yr = year(lc_eff_dt),
+           loss_cost = round(as.numeric(loss_cost), digits = 2), 
+           class_code = as.numeric(class_code), 
+           class_code_fct = str_pad(as.character(class_code), 4), 
+           class_code_fct = str_replace_all(class_code_fct, 
+                                            ' ', '0'), 
+           class_code_fct = as_factor(class_code_fct))
   return(xx)}
 
 # test +++++++++++++++++++++++++++
-# fun_readfiles(payload[4, 2]) %>% View()
+# fun_readfiles(payload[6, 2]) %>% View()
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # execute the file reading purrr, and time it
