@@ -103,69 +103,15 @@ df <- xx %>% select(-metadata_tag)
 
 # ^ -----
 
-# visualize 1 -----------------------------------------------
+# analysis functions --------------------------------------------
 
-# trend line of loss costs (mean/median) over time
-df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  group_by(lc_eff_yr) %>% 
-  summarise(lc_mean = mean(loss_cost), 
-            lc_med = median(loss_cost)) %>% 
-  ggplot(aes(x = lc_eff_yr, y = lc_med)) + 
-  geom_line(size = 1) + 
-  geom_label(aes(label = lc_med)) + 
-  theme_minimal() + theme(legend.position = "top") + 
-  labs(y = "Median Loss Cost", x = "Loss Cost Effective Year",  
-       subtitle = "Class-Level Median Loss Cost Over Time", 
-       caption = "Excludes F Haz Group and classes with LC over $10")
+interim <- df %>% arrange(lc_eff_dt) %>% 
+  group_by(class_code_fct) %>% 
+  summarise(class_name = last(class_description))
 
-# box plot of class level loss costs by year
-df %>% filter(loss_cost < 10, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
-  ggplot(aes(x = lc_eff_yr, y = loss_cost, group = lc_eff_yr, 
-             color = lc_eff_yr)) + 
-  geom_boxplot(alpha = 0, size = 1) + 
-  theme_minimal() + theme(legend.position = "none") + 
-  labs(x = "Loss Cost Eff Year", y = "Loss Cost", 
-       subtitle = "Loss Cost By Class Distribution Over Time", 
-       caption = "Excludes F Haz Group and classes with LC over $10")
-
-# ^ -----
-
-# visualize 2 -----------------------------------------------
-
-# trend line of loss costs (mean/median) over time
-df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  group_by(lc_eff_yr, hazard_group) %>% 
-  summarise(lc_mean = mean(loss_cost), 
-            lc_med = median(loss_cost)) %>% 
-  ggplot(aes(x = lc_eff_yr, y = lc_med, color = hazard_group)) + 
-  geom_line(size = 1) + 
-  geom_label(aes(label = lc_med), size = 3) + 
-  theme_minimal() + theme(legend.position = "none") + 
-  facet_wrap(vars(hazard_group), scales = "free_y") + 
-  labs(y = "Median Loss Cost", x = "Loss Cost Effective Year",  
-       subtitle = "Class-Level Median Loss Cost Over Time", 
-       caption = "Excludes F Haz Group and classes with LC over $10")
-
-# box plot of class level loss costs by year
-df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
-  ggplot(aes(x = lc_eff_yr, y = loss_cost, group = lc_eff_yr, 
-             color = hazard_group)) + 
-  geom_boxplot(alpha = 0, size = 1) + 
-  theme_minimal() + theme(legend.position = "none") + 
-  facet_wrap(vars(hazard_group), scales = "free_y") + 
-  labs(x = "Loss Cost Eff Year", y = "Loss Cost", 
-       subtitle = "Loss Cost By Class Distribution Over Time", 
-       caption = "Excludes F Haz Group and classes with LC over $10")
-
-# ^ -----
-
-# visualize 3 ------------------------------------------------
+df <- left_join(df, interim, by = "class_code_fct")
+rm(interim)
+trash()
 
 fun_delta_type <- function(vvv) {
   return_me <- case_when(is.na(vvv) ~ 'ERROR', 
@@ -192,7 +138,8 @@ fun_code_type <- function(yr1, yr2) {
 fun_wider_tbl <- function(df_func) {
   return_me <- df_func %>% 
     mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
-    group_by(lc_eff_yr, hazard_group, class_code_fct) %>% 
+    group_by(lc_eff_yr, hazard_group, 
+             class_code_fct, class_name) %>% 
     summarise(loss_cost = min(loss_cost)) %>% 
     pivot_wider(names_from = lc_eff_yr, values_from = loss_cost, 
                 names_prefix = 'yr_') %>% 
@@ -203,31 +150,108 @@ fun_wider_tbl <- function(df_func) {
            class_code_type = fun_code_type(yr_2020, yr_2021))
   return(return_me)}
 
+# ^ -----
 
-df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  fun_wider_tbl() %>% 
-  View()
+# plot this data ----------------------------------------------
+
+dfplt <- df %>% 
+  filter(loss_cost < 25) %>% 
+  filter(hazard_group != 0, hazard_group != '') %>%
+  filter(class_temp_staff == FALSE) %>% 
+  filter(lc_eff_dt > as.Date('2016-01-01'))
+
+# ^ -----
+
+# visualize 1 -----------------------------------------------
+
+# trend line of loss costs (mean/median) over time
+dfplt %>% 
+  group_by(lc_eff_yr) %>% 
+  summarise(lc_mean = mean(loss_cost), 
+            lc_med = median(loss_cost)) %>% 
+  ggplot(aes(x = lc_eff_yr, y = lc_med)) + 
+  geom_line(size = 1) + 
+  geom_label(aes(label = lc_med)) + 
+  theme_minimal() + theme(legend.position = "top") + 
+  labs(y = "Median Loss Cost", x = "Loss Cost Effective Year",  
+       subtitle = "Class-Level Median Loss Cost Over Time", 
+       caption = "Excludes NULL Haz Group and classes with LC over $10")
+
+# box plot of class level loss costs by year
+dfplt %>% 
+  mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
+  ggplot(aes(x = lc_eff_yr, y = loss_cost, group = lc_eff_yr, 
+             color = lc_eff_yr)) + 
+  geom_boxplot(size = 1, outlier.shape = 1) + 
+  geom_jitter(alpha = 0.25) + 
+  theme_minimal() + theme(legend.position = "none") + 
+  labs(x = "Loss Cost Eff Year", y = "Loss Cost", 
+       subtitle = "Loss Cost By Class Distribution Over Time", 
+       caption = "Excludes NULL Haz Group and classes with LC over $10")
+
+# ^ -----
+
+# visualize 2 -----------------------------------------------
+
+# trend line of loss costs (mean/median) over time
+dfplt %>% 
+  group_by(lc_eff_yr, hazard_group) %>% 
+  summarise(lc_mean = mean(loss_cost), 
+            lc_med = median(loss_cost)) %>% 
+  ggplot(aes(x = lc_eff_yr, y = lc_med, color = hazard_group)) + 
+  geom_line(size = 1) + 
+  geom_label(aes(label = lc_med), size = 3) + 
+  theme_minimal() + theme(legend.position = "none") + 
+  facet_wrap(vars(hazard_group), scales = "free_y") + 
+  labs(y = "Median Loss Cost", x = "Loss Cost Effective Year",  
+       subtitle = "Class-Level Median Loss Cost Over Time", 
+       caption = "Excludes NULL Haz Group and classes with LC over $10")
+
+# box plot of class level loss costs by year
+dfplt %>% 
+  mutate(lc_eff_yr = as.factor(lc_eff_yr)) %>% 
+  ggplot(aes(x = lc_eff_yr, y = loss_cost, group = lc_eff_yr, 
+             color = hazard_group)) + 
+  geom_boxplot(alpha = 0, size = 1) + 
+  theme_minimal() + theme(legend.position = "none") + 
+  facet_wrap(vars(hazard_group), scales = "free_y") + 
+  labs(x = "Loss Cost Eff Year", y = "Loss Cost", 
+       subtitle = "Loss Cost By Class Distribution Over Time", 
+       caption = "Excludes NULL Haz Group and classes with LC over $10")
+
+# ^ -----
+
+# visualize 3 ------------------------------------------------
+
+dfplt %>% fun_wider_tbl() %>% 
   mutate(yr_2020 = ifelse(is.na(yr_2020), 0, yr_2020), 
          yr_2021 = ifelse(is.na(yr_2021), 0, yr_2021)) %>% 
   ggplot() + 
-  geom_point(aes(x = yr_2021, y = yr_2020, 
+  geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+  geom_point(aes(x = yr_2020, y = yr_2021, 
                  color = hazard_group), 
              alpha = 0.5) + 
   theme_minimal() + theme(legend.position = 'none') + 
   facet_wrap(vars(hazard_group), scales = 'free')
 
-df %>% filter(loss_cost < 20, lc_eff_dt > as.Date('2016-01-01'), 
-              hazard_group != 0, hazard_group != "F") %>% 
-  fun_wider_tbl() %>% 
+dfplt %>% fun_wider_tbl() %>% 
   ggplot() + 
   geom_point(aes(x = yr_2021, y = delta_20_21, 
                  color = hazard_group), 
              alpha = 0.5) + 
-  geom_hline(aes(yintercept = median(delta_20_21, na.rm = TRUE)), 
+  geom_hline(aes(yintercept = -0.2102), 
              linetype = 2) + 
   theme_minimal() + theme(legend.position = 'none') + 
-  facet_wrap(vars(hazard_group))
+  facet_wrap(vars(hazard_group), scales = 'free')
 
+# ^ -----
+
+# write the aggregated data out -------------------------------
+
+# write to csv
+# filename <- paste0(getwd(), "/etl/ingot/agg_classcode_df.csv")
+# clockin()
+# write.csv(df %>% fun_wider_tbl(), file = filename, row.names = FALSE)
+# clockout()
 
 # ^ -----
